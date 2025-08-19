@@ -1,81 +1,51 @@
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-// --- Signup Logic ---
-exports.signup = async (req, res) => {
-    const { username, phone, password } = req.body; // Changed from email to phone
+// ✅ Register
+export const registerUser = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
 
-    try {
-        // 1. Check if a user with this phone number already exists
-        let user = await User.findOne({ phone }); // Changed from email
-        if (user) {
-            return res.status(400).json({ msg: 'User with this phone number already exists' });
-        }
+    // check if already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
-        // 2. If not, create a new user instance
-        user = new User({ username, phone, password }); // Changed from email
+    // hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 3. Hash the password before saving it
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(password, salt);
+    const newUser = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+    });
 
-        // 4. Save the new user to the database
-        await user.save();
-
-        // 5. Create a JSON Web Token (JWT) for the new user
-        const payload = {
-            user: { id: user.id, role: user.role },
-        };
-
-        jwt.sign(
-            payload,
-            process.env.JWT_SECRET,
-            { expiresIn: '5h' },
-            (err, token) => {
-                if (err) throw err;
-                res.status(201).json({ token });
-            }
-        );
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
+    res.status(201).json({ message: 'User registered successfully', user: newUser });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
 };
 
-// --- Login Logic ---
-exports.login = async (req, res) => {
-    const { phone, password } = req.body; // Changed from email to phone
+// ✅ Login
+export const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-    try {
-        // 1. Check if a user with that phone number exists
-        let user = await User.findOne({ phone }); // Changed from email
-        if (!user) {
-            return res.status(400).json({ msg: 'Invalid Credentials' });
-        }
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: 'Invalid email or password' });
 
-        // 2. Compare the provided password with the stored hashed password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ msg: 'Invalid Credentials' });
-        }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' });
 
-        // 3. If credentials are correct, create and return a new token
-        const payload = {
-            user: { id: user.id, role: user.role },
-        };
+    // generate JWT
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
-        jwt.sign(
-            payload,
-            process.env.JWT_SECRET,
-            { expiresIn: '5h' },
-            (err, token) => {
-                if (err) throw err;
-                res.json({ token });
-            }
-        );
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
 };

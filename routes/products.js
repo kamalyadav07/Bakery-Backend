@@ -1,21 +1,28 @@
-const express = require('express');
+import express from 'express';
+import Product from '../models/Product.js';
+
 const router = express.Router();
-const {
-    getProducts,
-    getProductById,
-    createProduct
-} = require('../controllers/productController');
-const auth = require('../middleware/authMiddleware');
 
-// We need a middleware to check if the user is an admin
-// For now, we'll just use the 'auth' middleware to ensure the user is logged in
-// In a real app, you'd create an 'adminAuth' middleware.
+// GET all products
+router.get('/', async (req, res) => {
+  try {
+    const products = await Product.find();
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
-// Public routes
-router.get('/', getProducts);
-router.get('/:id', getProductById);
+// POST create product
+router.post('/', async (req, res) => {
+  try {
+    const { name, price, description, imageUrl } = req.body;
+    const product = new Product({ name, price, description, imageUrl });
+    const savedProduct = await product.save();
+    res.status(201).json(savedProduct);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
 
-// Private/Admin route
-router.post('/', auth, createProduct); // Protect this route
-
-module.exports = router;
+export default router;

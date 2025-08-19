@@ -1,22 +1,23 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+import express from "express";
+import bodyParser from "body-parser";
+import mongoose from "mongoose";
+import authRoutes from "./routes/authRoutes.js";
 
-dotenv.config();
 const app = express();
-connectDB();
+const PORT = 5000;
 
-app.use(cors());
-app.use(express.json());
+// Middleware
+app.use(bodyParser.json());
 
-app.get('/', (req, res) => res.send('Bakery API is up and running!'));
+// MongoDB Connection
+mongoose
+  .connect("mongodb://127.0.0.1:27017/bakeryDB", { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.error("❌ MongoDB Error:", err));
 
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/products', require('./routes/products'));
-app.use('/api/orders', require('./routes/orders'));
-app.use('/api/ai', require('./routes/ai'));
-app.use('/api/payment', require('./routes/payment')); // <-- ADD THIS LINE
+// Routes
+app.use("/api/auth", authRoutes);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server is cooking on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
